@@ -11,6 +11,19 @@
 
 本仓库将对应核心脚本固定在 `scripts/core/`，并额外做 Loon 参数适配、字幕翻译以及 YouTube 专用 QUIC 回退。旧版保存在 `legacy/`，可随时回滚。
 
+
+## 当前广告处理架构
+
+当前版本不再把希望主要寄托在 `pagead` tracking 或单一 `oad` URL 规则上。真正的主链路是：
+
+1. 在 `/youtubei/v1/player` 和 `get_watch` **请求阶段**删除广告 signals / ad params / force-ad params，并写入 inline-no-ad 标志；
+2. 精确处理 `/youtubei/v1/player/ad_break`，返回合法空 Protobuf，阻止新的片头/中插广告配置；
+3. 对 iOS YouTube App 的 POST `googlevideo.com/initplayback` 使用 Loon 原生 `reject_video(200)`，让客户端回退到已经净化的 Player 链路；
+4. `browse/next/search` 独立清理 Sponsored 信息流卡片；
+5. Maasea/Kelee response 路径继续负责后台播放、字幕翻译和界面开关。
+
+播放器请求与信息流实现参考并固定于 MIT 许可的 [teaoea/shell](https://github.com/teaoea/shell) 提交 `a44ce03f12368d44f4a324eb2c0c18c00d60e937`，发布副本保存在本仓库 `vendor/teaoea/`，不会随上游静默改变。
+
 ## 功能
 
 - 额外过滤新版播放页/推荐流中的 Sponsored 广告卡片
