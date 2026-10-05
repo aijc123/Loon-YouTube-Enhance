@@ -4,6 +4,13 @@
 
 一个面向 **Loon + iOS/iPadOS** 的 YouTube / YouTube Music 增强插件，基于 Maasea 当前上游逻辑，并针对 Loon 的 QUIC、后台播放和 PiP 兼容做额外适配。
 
+
+## 当前版本（2026-10-05）
+
+当前主版本已经不再混用两套 response 过滤器，而是改成一条统一的当前 YouTube Onesie/UMP 处理链路。参考实现于 2026-10-04 刚更新了新版 Premium banner / Sponsored 结构识别，并直接处理加密 `initplayback` response。
+
+本仓库将对应核心脚本固定在 `scripts/core/`，并额外做 Loon 参数适配、字幕翻译以及 YouTube 专用 QUIC 回退。旧版保存在 `legacy/`，可随时回滚。
+
 ## 功能
 
 - 额外过滤新版播放页/推荐流中的 Sponsored 广告卡片
