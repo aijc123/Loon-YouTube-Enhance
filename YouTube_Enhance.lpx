@@ -1,8 +1,8 @@
 #!name=YouTube Enhance for Loon
-#!desc=基于 Maasea 当前 YouTube Enhance：去广告、后台播放、原生 PiP 兼容、字幕翻译与界面精简；加入 YouTube 专用 QUIC/UDP 回退，并兼容当前 initplayback 请求格式。
+#!desc=当前 YouTube/iOS 兼容版：去视频广告、Sponsored 卡片、后台播放、PiP、字幕翻译与界面精简。核心基于 2026-10-04 最新 YouTube Onesie/UMP 实现，并针对 Loon 参数和 QUIC 回退适配。
 #!openUrl=https://apps.apple.com/app/id544007664
-#!author=Maasea[https://github.com/Maasea], VirgilClyne[https://github.com/VirgilClyne], Choler[https://github.com/Choler], DivineEngine[https://github.com/DivineEngine], app2smile[https://github.com/app2smile]
-#!tag=去广告
+#!author=Maasea, gholts, aijc123
+#!tag=YouTube,去广告,后台播放
 #!system=iOS, iPadOS, macOS
 #!system_version=15
 #!loon_version=3.5.1(998)
@@ -11,31 +11,44 @@
 #!date=2026-10-05
 
 [Argument]
-blockUpload=switch, false, true, tag=隐藏上传按钮, desc=用于隐藏YouTube底栏的上传按钮
-blockShorts=switch, true, false, tag=隐藏Shorts按钮, desc=用于隐藏YouTube底栏的Shorts按钮
-blockImmersive=switch, false, true, tag=隐藏选段按钮, desc=用于隐藏YouTube Music底栏的选段按钮
-captionLang=select, "off", "zh-Hans", "zh-Hant", "ja", "ko", "en", "fr", "de", "ru", "fil", "vi", tag=字幕翻译语言, desc=需要把YouTube字幕翻译为何种语言
-debug=switch, false, true, tag=启用调试模式, desc=此插件的调试模式
+blockUpload=switch, false, true, tag=隐藏上传按钮, desc=隐藏 YouTube 底栏上传按钮
+blockShorts=switch, true, false, tag=隐藏 Shorts 按钮, desc=隐藏 YouTube 底栏 Shorts 按钮
+blockImmersive=switch, false, true, tag=隐藏选段按钮, desc=隐藏 YouTube Music 底栏选段按钮
+captionLang=select, "off", "zh-Hans", "zh-Hant", "ja", "ko", "en", "fr", "de", "ru", "fil", "vi", tag=字幕翻译语言, desc=off 为关闭；其余为目标字幕语言
+blockGames=switch, true, false, tag=隐藏 Playables, desc=隐藏首页游戏/Playables 内容
+blockVerticalLive=switch, false, true, tag=隐藏竖屏直播, desc=隐藏首页竖屏直播卡片
+jumpAhead=switch, true, false, tag=启用 Jump Ahead, desc=解除 Jump Ahead 按钮限制
+blockStore=switch, true, false, tag=隐藏商品推广, desc=隐藏创作者商店、商品卡片与覆盖层
+autoHd=switch, true, false, tag=优先高画质, desc=允许脚本缓存高画质选择信息
+debug=switch, false, true, tag=调试模式, desc=排障时开启
 
 [Rule]
+# 仅阻断 YouTube 相关域名的 UDP/QUIC，让 HTTP/3 自动回落 TCP/HTTPS。
 AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,UDP)),REJECT
 AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,UDP)),REJECT
 AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,UDP)),REJECT
-DOMAIN-SUFFIX,googlesyndication.com,REJECT
-DOMAIN-SUFFIX,doubleclick.net,REJECT
-DOMAIN-SUFFIX,googleadservices.com,REJECT
 
 [Rewrite]
 request if ${url} ~= /^https:\/\/www\.youtube\.com\/(pagead|pcs)\// then reject(200)
 request if ${url} ~= /^https:\/\/www\.youtube\.com\/ptracking/ then reject(200)
-request if ${url} ~= /^https:\/\/s\.youtube\.com\/api\/stats\/(ads|qoe\?adcontext)/ then reject(200)
+request if ${url} ~= /^https:\/\/s\.youtube\.com\/api\/stats\/ads/ then reject(200)
+request if ${url} ~= /^https:\/\/s\.youtube\.com\/api\/stats\/qoe\?adcontext/ then reject(200)
 
 [Script]
-response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/(youtubei\/v1\/(browse|next|player|search|reel\/reel_watch_sequence|guide|account\/get_setting|get_watch|log_event|config))(\?(.*))?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/youtube.response.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="YouTube去广告", requires_body=true, binary_body_mode=true
+# 当前主 API：广告过滤 + Sponsored/promoted 结构 + background/PiP + 设置 + 字幕翻译
+response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(navigation\/resolve_url|browse|next|player|search|reel\/reel_watch_sequence|guide|account\/get_setting|get_watch)(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/response.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${blockGames}, ${blockVerticalLive}, ${jumpAhead}, ${blockStore}, ${autoHd}, ${debug}}) with tag="YouTube核心增强", requires_body=true, binary_body_mode=true
 
-request if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback.*$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/youtube.request.js", {${captionLang}}) with tag="请求初始化", requires_body=true, binary_body_mode=true
+# Onesie/UMP 密钥：必须先解析 config/log_event，才能处理加密 initplayback response。
+response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(config|log_event)(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/key.js") with tag="YouTube密钥配置", requires_body=true, binary_body_mode=true
 
-request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/log_event/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/youtube.request.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="请求日志事件", requires_body=true, binary_body_mode=true
+# 真正处理当前加密播放响应：去片头/中插广告，同时补 background/PiP/caption capability。
+response if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/ump.js", {${captionLang}, ${blockGames}, ${blockVerticalLive}, ${jumpAhead}, ${blockStore}, ${autoHd}, ${debug}}) with tag="YouTube UMP响应", requires_body=true, binary_body_mode=true
+
+request if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/request.js", {${autoHd}, ${debug}}) with tag="YouTube UMP请求", requires_body=true, binary_body_mode=true
+
+request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/log_event(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/request.js", {${debug}}) with tag="YouTube日志事件"
+
+request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/player\/ad_break(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/request.js", {${debug}}) with tag="YouTube广告段"
 
 [MitM]
 hostname = %APPEND% *.googlevideo.com, youtubei.googleapis.com, www.youtube.com, s.youtube.com
