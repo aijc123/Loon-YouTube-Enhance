@@ -1,22 +1,33 @@
-#!name = YouTube Enhance for Loon
-#!desc = YouTube / YouTube Music enhancement for Loon based on Maasea upstream, with background playback, native PiP compatibility, subtitle translation, and YouTube-only QUIC fallback.
-#!author = Maasea (upstream) / aijc123
-#!homepage = https://github.com/aijc123/Loon-YouTube-Enhance
-#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/YouTube.png
-#!system = iOS,iPadOS,macOS
-#!system_version = 15
-#!loon_version = 3.5.1(998)
-#!tag = YouTube,YouTube Music,Background,PiP
-#!type = normal
+#!name=YouTube Enhance for Loon
+#!desc=基于 Maasea 当前 YouTube Enhance：去广告、后台播放、原生 PiP 兼容、字幕翻译与界面精简；额外加入 YouTube 专用 QUIC/UDP 回退，降低偶发漏广告。
+#!openUrl=https://apps.apple.com/app/id544007664
+#!author=Maasea[https://github.com/Maasea], VirgilClyne[https://github.com/VirgilClyne], Choler[https://github.com/Choler], DivineEngine[https://github.com/DivineEngine], app2smile[https://github.com/app2smile]
+#!tag=去广告
+#!system=iOS, iPadOS, macOS
+#!system_version=15
+#!loon_version=3.4.0(962)
+#!homepage=https://github.com/aijc123/Loon-YouTube-Enhance
+#!icon=https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/YouTube.png
+#!date=2026-10-05
 
 [Argument]
-blockUpload = switch,false,tag=隐藏上传按钮,desc=隐藏 YouTube 底栏上传按钮
-blockShorts = switch,true,tag=隐藏 Shorts 按钮,desc=隐藏 YouTube 底栏 Shorts 按钮
-blockImmersive = switch,false,tag=隐藏选段按钮,desc=隐藏 YouTube Music 底栏选段按钮
-captionLang = select,"off","zh-Hans","zh-Hant","en","ja","ko","es","fr","de","ru","fil","vi",tag=字幕翻译语言,desc=off=关闭；zh-Hans=简体中文；zh-Hant=繁体中文
-debug = switch,false,tag=启用调试模式,desc=仅排障时开启
+blockUpload=switch, false, true, tag=隐藏上传按钮, desc=用于隐藏YouTube底栏的上传按钮
+blockShorts=switch, true, false, tag=隐藏Shorts按钮, desc=用于隐藏YouTube底栏的Shorts按钮
+blockImmersive=switch, false, true, tag=隐藏选段按钮, desc=用于隐藏YouTube Music底栏的选段按钮
+captionLang=select, "off", "zh-Hans", "zh-Hant", "ja", "ko", "en", "fr", "de", "ru", "es", tag=字幕翻译语言, desc=需要把YouTube字幕翻译翻译为何种语言
+debug=switch, false, true, tag=启用调试模式, desc=此插件的调试模式
 
 [Rule]
 AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,UDP)),REJECT
 AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,UDP)),REJECT
 AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,UDP)),REJECT
+
+[Script]
+http-response ^https:\/\/youtubei\.googleapis\.com\/(youtubei\/v1\/(browse|next|player|search|reel\/reel_watch_sequence|guide|account\/get_setting|get_watch|log_event|config))(\?(.*))?$ script-path=https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/youtube.response.js, requires-body=true, binary-body-mode=true, argument=[{blockUpload},{blockShorts},{blockImmersive},{captionLang},{debug}], tag=YouTube去广告
+
+http-request ^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback.+&ack.* script-path=https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/youtube.request.js, requires-body=true, binary-body-mode=true, argument=[{captionLang}], tag=请求初始化
+
+http-request ^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/log_event script-path=https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/youtube.request.js, requires-body=true, binary-body-mode=true, argument=[{blockUpload},{blockShorts},{blockImmersive},{captionLang},{debug}], tag=请求日志事件
+
+[MitM]
+hostname=*.googlevideo.com, youtubei.googleapis.com
