@@ -6,6 +6,8 @@
 
 ## 功能
 
+- 额外过滤新版播放页/推荐流中的 Sponsored 广告卡片
+- 直接处理加密 `initplayback` Onesie/UMP 响应，改善后台播放和广告过滤稳定性
 - YouTube / YouTube Music 去广告
 - 后台播放
 - 使用 iOS / YouTube 原生 PiP，减少脚本强制 PiP 导致的黑屏/暂停
@@ -65,3 +67,9 @@ Maasea 上游 response 脚本会同时注入 PiP 和后台播放 capability。�
 ## 上游
 
 核心解析逻辑来自 [Maasea/sgmodule](https://github.com/Maasea/sgmodule)。本仓库是非官方 Loon 兼容 fork，与 YouTube、Google、Loon 或 Maasea 无隶属关系。
+
+
+## 当前兼容链路说明
+
+当前版本继续保留 Maasea 的 Loon-aware 播放/设置逻辑，同时参考并直接调用公开的 `gholts/surge` YouTube 兼容脚本来处理新版 Sponsored 卡片、加密 Onesie/UMP 响应以及 `player/ad_break`。其模块说明该实现基于 Maasea 的 Apache-2.0 代码。
+
