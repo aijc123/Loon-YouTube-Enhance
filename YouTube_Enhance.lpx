@@ -47,10 +47,10 @@ request if ${url} ~= /^https:\/\/(?:www|s)\.youtube\.com\/api\/stats\/qoe\?.*adc
 [Script]
 # 1) 播放请求净化：删除广告 signals/adParams/forceAdParameters，并写入 isInlinePlaybackNoAd。
 # 2) 精确阻断 /player/ad_break，返回合法空 Protobuf，阻止新的片头/中插广告配置。
-http-request ^https:\/\/(?:youtubei(?:-att)?\.googleapis\.com|(?:www\.|m\.|music\.)?youtube\.com)\/youtubei\/v1\/(?:player|get_watch)(?:\?[^#]*)?$|^https:\/\/(?:youtubei(?:-att)?\.googleapis\.com|(?:www\.|m\.|music\.)?youtube\.com)\/youtubei\/v1\/player\/ad_break(?:\?[^#]*)?$ script-path=https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/vendor/teaoea/request.min.js,requires-body=true,binary-body-mode=true,timeout=10,argument=[{${log_enabled}},{${log_level}},{${capture_budget}},{${playback_region}}],tag=YouTube播放请求去广告
+http-request ^https:\/\/(?:youtubei(?:-att)?\.googleapis\.com|(?:www\.|m\.|music\.)?youtube\.com)\/youtubei\/v1\/(?:player|get_watch)(?:\?[^#]*)?$|^https:\/\/(?:youtubei(?:-att)?\.googleapis\.com|(?:www\.|m\.|music\.)?youtube\.com)\/youtubei\/v1\/player\/ad_break(?:\?[^#]*)?$ script-path=https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/vendor/teaoea/request.min.js,requires-body=true,binary-body-mode=true,timeout=10,argument=[{log_enabled},{log_level},{capture_budget},{playback_region}],tag=YouTube播放请求去广告
 
 # 信息流/播放页推荐/搜索 Sponsored 卡片：使用当前 Loon iOS 样本适配实现。
-http-response ^https:\/\/(?:youtubei(?:-att)?\.googleapis\.com|(?:www\.|m\.|music\.)?youtube\.com)\/youtubei\/v1\/(browse|next|search)(\?[^#]*)?$ script-path=https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/vendor/teaoea/response.min.js,requires-body=true,binary-body-mode=true,timeout=10,argument=[{${log_enabled}},{${log_level}},{${capture_budget}}],tag=YouTube信息流去广告
+http-response ^https:\/\/(?:youtubei(?:-att)?\.googleapis\.com|(?:www\.|m\.|music\.)?youtube\.com)\/youtubei\/v1\/(browse|next|search)(\?[^#]*)?$ script-path=https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/vendor/teaoea/response.min.js,requires-body=true,binary-body-mode=true,timeout=10,argument=[{log_enabled},{log_level},{capture_budget}],tag=YouTube信息流去广告
 
 # 播放响应：保留此前在你设备上能工作的 Maasea/Kelee Loon 路径，
 # 负责 player/get_watch/reel 的广告字段、后台播放、字幕翻译和 UI 开关。
