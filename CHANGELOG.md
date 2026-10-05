@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-05 — Core rewrite for current YouTube ads/background playback
+
+- Replaced the experimental Maasea/gholts hybrid routing with one current YouTube core path derived from the latest gholts implementation (upstream build commit 6ad63067, 2026-10-04), itself based on Maasea.
+- Added current Sponsored-card detection including `sponsoredVideo`, `sponsoredDisplay`, `promotedContents`, and newer premium-banner structures.
+- Processes encrypted `googlevideo.com/initplayback` responses directly via the Onesie/UMP flow, instead of relying on request-only interception.
+- Keeps `config/log_event` key handling and `player/ad_break` interception.
+- Forked the current core scripts into this repository under `scripts/core/` and patched them for Loon argument objects.
+- Added subtitle translation support to both ordinary Player responses and encrypted UMP Player responses.
+- Keeps YouTube-only QUIC/UDP fallback and legacy pagead/stat tracking rewrites.
+- Previous plugin revisions remain under `legacy/` for rollback.
+
 ## 2026-10-05 — Sponsored-ad + background-play hotfix
 
 - Added newer feed/watch-page ad filtering for `sponsoredVideo`, `sponsoredDisplay`, and `promotedContents` structures.
