@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-05 — Loon-native preroll hotfix
+
+- Restored the Loon-native Kelee/Maasea playback path instead of relying on Surge WebView-oriented UMP scripts for the player.
+- Added the long-used `googlevideo.com/initplayback ... oad` reject-200 fallback for short pre-roll video ads.
+- Added both `www.youtube.com` and `s.youtube.com` ad-stat / ad-context telemetry fallbacks.
+- Kept the newer feed/search/next response filter only for Sponsored/promoted cards.
+- Kept background playback injection while removing forced PiP capability injection.
+- Kept YouTube-only UDP/QUIC fallback.
+
 ## 2026-10-05 — Loon QUIC rule hotfix
 
 - Fixed a Loon-specific rule bug: `PROTOCOL,UDP` does not catch traffic that Loon classifies as `QUIC`.
