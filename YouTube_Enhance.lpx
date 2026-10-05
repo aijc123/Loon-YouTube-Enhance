@@ -24,15 +24,15 @@ debug=switch, false, true, tag=调试模式, desc=排障时开启
 
 [Rule]
 # 仅阻断 YouTube 相关域名的 UDP/QUIC，让 HTTP/3 自动回落 TCP/HTTPS。
-AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,UDP)),REJECT
-AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,UDP)),REJECT
-AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,UDP)),REJECT
+AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,QUIC)),REJECT
 
 [Rewrite]
 request if ${url} ~= /^https:\/\/www\.youtube\.com\/(pagead|pcs)\// then reject(200)
 request if ${url} ~= /^https:\/\/www\.youtube\.com\/ptracking/ then reject(200)
-request if ${url} ~= /^https:\/\/s\.youtube\.com\/api\/stats\/ads/ then reject(200)
-request if ${url} ~= /^https:\/\/s\.youtube\.com\/api\/stats\/qoe\?adcontext/ then reject(200)
+request if ${url} ~= /^https:\/\/(?:s|www)\.youtube\.com\/api\/stats\/ads/ then reject(200)
+request if ${url} ~= /^https:\/\/(?:s|www)\.youtube\.com\/api\/stats\/qoe\?adcontext/ then reject(200)
 
 [Script]
 # 当前主 API：广告过滤 + Sponsored/promoted 结构 + background/PiP + 设置 + 字幕翻译
