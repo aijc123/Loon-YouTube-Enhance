@@ -2,10 +2,12 @@
 
 **English** | [简体中文](./README.zh-CN.md)
 
-A Loon-focused YouTube / YouTube Music enhancement plugin based on the current Maasea upstream scripts.
+A Loon-focused YouTube / YouTube Music enhancement plugin based on Maasea's current player/settings logic plus a newer encrypted Onesie/UMP compatibility path for current YouTube builds.
 
 ## Goals
 
+- Remove newer watch-page/feed Sponsored cards in addition to normal video/feed/search ads.
+- Handle encrypted `initplayback` responses directly so background playback and ad filtering are not dependent on the older request-only path.
 - Remove YouTube video, feed, search and Shorts ads.
 - Keep background playback enabled.
 - Use YouTube/iOS native Picture in Picture instead of force-injecting PiP capability, to reduce the black-screen / stalled-PiP behavior reported with newer YouTube builds.
@@ -70,3 +72,9 @@ Add that URL as a Loon plugin subscription. Future updates keep the same URL.
 YouTube changes server-side behavior frequently. No ad-blocking method can be guaranteed to remain perfect indefinitely. If an ad leaks or playback stalls, capture Loon Requests while the problem is happening before restarting YouTube; that makes the failing endpoint visible.
 
 This project is an unofficial compatibility fork and is not affiliated with YouTube, Google, Loon, or Maasea.
+
+
+## Additional compatibility reference
+
+The current feed/Onesie compatibility path references the actively maintained public `gholts/surge` YouTube scripts for newer Sponsored-card structures and encrypted UMP handling. That project describes its YouTube implementation as based on Maasea's Apache-2.0 code.
+
