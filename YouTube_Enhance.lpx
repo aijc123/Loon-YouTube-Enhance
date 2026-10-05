@@ -1,7 +1,7 @@
 #!name=YouTube Enhance for Loon
-#!desc=Loon/iOS 稳定版：YouTube / YouTube Music 去广告、后台播放、字幕翻译、界面精简，并加入针对当前 5 秒片头广告的 initplayback oad 拦截与 YouTube 专用 QUIC 回退。
+#!desc=Loon/iOS 当前兼容版：前置/中插广告、Sponsored 信息流广告、后台播放、字幕翻译与界面精简。播放器请求与 ad_break 采用当前 Loon 专用实现，initplayback POST 直接返回空视频让客户端回退到无广告 Player 链路。
 #!openUrl=https://apps.apple.com/app/id544007664
-#!author=Maasea, Moli-X/Kelee adaptation, gholts, aijc123
+#!author=Maasea, teaoea, aijc123
 #!tag=YouTube,去广告,后台播放
 #!system=iOS, iPadOS, macOS
 #!system_version=15
@@ -15,37 +15,46 @@ blockUpload=switch, false, true, tag=隐藏上传按钮, desc=隐藏 YouTube 底
 blockShorts=switch, true, false, tag=隐藏 Shorts 按钮, desc=隐藏 YouTube 底栏 Shorts 按钮
 blockImmersive=switch, false, true, tag=隐藏选段按钮, desc=隐藏 YouTube Music 底栏选段按钮
 captionLang=select, "off", "zh-Hans", "zh-Hant", "ja", "ko", "en", "fr", "de", "ru", "fil", "vi", tag=字幕翻译语言, desc=off 为关闭；其余为目标字幕语言
-debug=switch, false, true, tag=调试模式, desc=排障时开启
+playback_region=select, "original", "US", "HK", "TW", "JP", "KR", "SG", "GB", "DE", "RU", "CN", tag=播放请求地区, desc=默认 original，不修改出口 IP，仅在需要排障时改客户端 gl
+log_enabled=switch, false, true, tag=开发日志, desc=默认关闭；仅排障时开启
+log_level=select, "error", "info", "debug", "warn", tag=日志级别, desc=仅开发日志开启时有意义
+capture_budget=select, "16", "32", "64", tag=日志容量MB, desc=仅开发日志开启时有意义
+debug=switch, false, true, tag=调试模式, desc=仅排障时开启
 
 [Rule]
-# 只对 YouTube 关键域名禁用 UDP/QUIC，强制回落 TCP/HTTPS。
-AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,QUIC)),REJECT
+# API 与媒体协商都强制从 QUIC/UDP 443 回退到可被 Loon MitM/脚本检查的 TCP。
+AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,UDP),(DEST-PORT,443)),REJECT
+AND,((DOMAIN,youtubei-att.googleapis.com),(PROTOCOL,UDP),(DEST-PORT,443)),REJECT
 AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,QUIC)),REJECT
-AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,UDP),(DEST-PORT,443)),REJECT
+AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,UDP),(DEST-PORT,443)),REJECT
 
 [Rewrite]
-# 关键：当前 iOS YouTube 的短片头广告常走带 oad 参数的 initplayback。
-# 这是多个长期使用的 Loon/Surge YouTube 规则采用的直接拦截方式。
-request if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback.+(?:[?&])oad(?:=|&|$)/i then reject(200)
+# 当前 iOS YouTube initplayback（Onesie/UMP）绕过普通 player 的关键入口。
+# 对 YouTube App 的 POST 直接返回 Loon 内置空视频，迫使客户端回退到已被脚本净化的 player 链路。
+request if ${url} ~= /^https:\/\/[a-z0-9-]+\.googlevideo\.com\/initplayback(?:\?[^#]*)?$/i && ${request.method} == "POST" && ${request.header['User-Agent']} ~= /(?:^|\s)com\.google\.ios\.youtube\//i then reject_video(200)
 
-# 广告 tracking / telemetry 兜底。它们不是主过滤手段，但避免广告链路继续回报。
+# 清除媒体源 Alt-Svc，降低 QUIC 被拒绝后再次协商 HTTP/3 的机会。
+^https://(?:[\w-]+\.)*googlevideo\.com(?::443)?/ response-header-replace Alt-Svc clear
+
+# 广告 tracking / telemetry 兜底；真正的主过滤在 player/ad_break、player 请求和 feed response。
 request if ${url} ~= /^https:\/\/www\.youtube\.com\/(pagead|pcs)\//i then reject(200)
 request if ${url} ~= /^https:\/\/www\.youtube\.com\/ptracking/i then reject(200)
 request if ${url} ~= /^https:\/\/(?:www|s)\.youtube\.com\/api\/stats\/ads/i then reject(200)
 request if ${url} ~= /^https:\/\/(?:www|s)\.youtube\.com\/api\/stats\/qoe\?.*adcontext/i then reject(200)
 
 [Script]
-# 新版 Sponsored / promoted 卡片过滤：只处理 feed/search/next，不碰播放器能力链路。
-response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(navigation\/resolve_url|browse|next|search|reel\/reel_watch_sequence)(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/response.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="YouTube信息流去广告", requires_body=true, binary_body_mode=true
+# 1) 播放请求净化：删除广告 signals/adParams/forceAdParameters，并写入 isInlinePlaybackNoAd。
+# 2) 精确阻断 /player/ad_break，返回合法空 Protobuf，阻止新的片头/中插广告配置。
+http-request ^https:\/\/(?:youtubei(?:-att)?\.googleapis\.com|(?:www\.|m\.|music\.)?youtube\.com)\/youtubei\/v1\/(?:player|get_watch)(?:\?[^#]*)?$|^https:\/\/(?:youtubei(?:-att)?\.googleapis\.com|(?:www\.|m\.|music\.)?youtube\.com)\/youtubei\/v1\/player\/ad_break(?:\?[^#]*)?$ script-path=https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/vendor/teaoea/request.min.js,requires-body=true,binary-body-mode=true,timeout=10,argument=[{${log_enabled}},{${log_level}},{${capture_budget}},{${playback_region}}],tag=YouTube播放请求去广告
 
-# Loon 原生稳定播放器链路：基于当前 Kelee/Maasea Loon 脚本。
-# 保留后台播放能力；移除强制 PiP capability 注入，让 iOS/YouTube 自己处理 PiP。
-response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/(youtubei\/v1\/(player|guide|account\/get_setting|get_watch|log_event|config))(\?(.*))?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/stable/youtube.response.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="YouTube播放增强", requires_body=true, binary_body_mode=true
+# 信息流/播放页推荐/搜索 Sponsored 卡片：使用当前 Loon iOS 样本适配实现。
+http-response ^https:\/\/(?:youtubei(?:-att)?\.googleapis\.com|(?:www\.|m\.|music\.)?youtube\.com)\/youtubei\/v1\/(browse|next|search)(\?[^#]*)?$ script-path=https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/vendor/teaoea/response.min.js,requires-body=true,binary-body-mode=true,timeout=10,argument=[{${log_enabled}},{${log_level}},{${capture_budget}}],tag=YouTube信息流去广告
 
-# Kelee/Maasea Loon-native initplayback 请求处理。广告专用 oad 请求会先被 Rewrite 拦截。
-request if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback.+&ack.*/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/stable/youtube.request.js", {${captionLang}}) with tag="YouTube请求初始化", requires_body=true, binary_body_mode=true
-
-request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/log_event/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/stable/youtube.request.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="YouTube日志事件", requires_body=true, binary_body_mode=true
+# 播放响应：保留此前在你设备上能工作的 Maasea/Kelee Loon 路径，
+# 负责 player/get_watch/reel 的广告字段、后台播放、字幕翻译和 UI 开关。
+response if ${url} ~= /^https:\/\/youtubei(?:-att)?\.googleapis\.com\/youtubei\/v1\/(player|get_watch|reel\/reel_watch_sequence|guide|account\/get_setting)(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/stable/youtube.response.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="YouTube播放增强", requires_body=true, binary_body_mode=true
 
 [MitM]
-hostname = %APPEND% *.googlevideo.com, youtubei.googleapis.com, www.youtube.com, s.youtube.com
+hostname = youtubei.googleapis.com, youtubei-att.googleapis.com, youtube.com, www.youtube.com, m.youtube.com, music.youtube.com, s.youtube.com, *.googlevideo.com
