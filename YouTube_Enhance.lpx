@@ -19,9 +19,9 @@ debug=switch, false, true, tag=调试模式, desc=排障时开启
 
 [Rule]
 # 只对 YouTube 关键域名禁用 UDP/QUIC，强制回落 TCP/HTTPS。
-AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,UDP)),REJECT
-AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,UDP)),REJECT
-AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,UDP)),REJECT
+AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,QUIC)),REJECT
 
 [Rewrite]
 # 关键：当前 iOS YouTube 的短片头广告常走带 oad 参数的 initplayback。
