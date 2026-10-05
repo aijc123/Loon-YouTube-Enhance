@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-05 — Sponsored-ad + background-play hotfix
+
+- Added newer feed/watch-page ad filtering for `sponsoredVideo`, `sponsoredDisplay`, and `promotedContents` structures.
+- Added response-side handling for encrypted `googlevideo.com/initplayback` Onesie/UMP playback, not just request-side handling.
+- Added current key/config handling for `config` and `log_event`.
+- Added `player/ad_break` request handling.
+- Added Loon rewrites for legacy `pagead`, `ptracking`, and ad-stat endpoints.
+- Kept Maasea's Loon-aware player/settings path for background capability, subtitle translation, and UI options.
+- Archived the previous Maasea-only plugin under `legacy/` for rollback.
+
 ## 2026-10-05 — initplayback hotfix
 
 - Broadened the Loon initplayback request hook so current YouTube initplayback URLs are intercepted even when the older `&ack` marker is absent.
