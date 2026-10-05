@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-05 — Loon QUIC rule hotfix
+
+- Fixed a Loon-specific rule bug: `PROTOCOL,UDP` does not catch traffic that Loon classifies as `QUIC`.
+- Switched YouTube, googlevideo.com and youtubei.googleapis.com fallback rules to `PROTOCOL,QUIC`.
+- This prevents googlevideo QUIC playback from bypassing MITM/script processing, which was visible in Loon Requests and could leak short pre-roll ads.
+- Expanded ad telemetry rewrites to cover both `s.youtube.com` and `www.youtube.com`.
+
 ## 2026-10-05 — Core rewrite for current YouTube ads/background playback
 
 - Replaced the experimental Maasea/gholts hybrid routing with one current YouTube core path derived from the latest gholts implementation (upstream build commit 6ad63067, 2026-10-04), itself based on Maasea.
