@@ -2,7 +2,7 @@
 
 **English** | [简体中文](./README.zh-CN.md)
 
-A Loon-focused YouTube / YouTube Music enhancement plugin based on Maasea's current player/settings logic plus a newer encrypted Onesie/UMP compatibility path for current YouTube builds.
+A Loon-focused YouTube / YouTube Music enhancement plugin using a pinned, device-tested Loon playback-ad path plus Maasea's player/settings enhancements.
 
 ## Goals
 
@@ -74,7 +74,47 @@ YouTube changes server-side behavior frequently. No ad-blocking method can be gu
 This project is an unofficial compatibility fork and is not affiliated with YouTube, Google, Loon, or Maasea.
 
 
-## Additional compatibility reference
+## Core provenance and stability policy
 
-The current feed/Onesie compatibility path references the actively maintained public `gholts/surge` YouTube scripts for newer Sponsored-card structures and encrypted UMP handling. That project describes its YouTube implementation as based on Maasea's Apache-2.0 code.
+The working pre-roll/mid-roll removal path is intentionally **not original code from this repository**.
 
+### teaoea/shell — MIT
+
+- Upstream: https://github.com/teaoea/shell
+- Pinned source commit: `a44ce03f12368d44f4a324eb2c0c18c00d60e937`
+- Vendored copies:
+  - `vendor/teaoea/request.min.js`
+  - `vendor/teaoea/response.min.js`
+- Used for:
+  - `player/get_watch` request sanitization
+  - `player/ad_break` handling
+  - `browse/next/search` Sponsored-card filtering
+- License and attribution are preserved in `vendor/teaoea/NOTICE.md`.
+
+### Maasea/sgmodule
+
+- Upstream: https://github.com/Maasea/sgmodule
+- Pinned local copies:
+  - `scripts/stable/youtube.response.js`
+  - `scripts/stable/youtube.request.js`
+- Used for background-play capability, subtitle translation and selected UI enhancements.
+
+### This repository's Loon glue
+
+`YouTube_Enhance.lpx` combines the pinned upstream logic with Loon-specific behavior:
+- YouTube-only QUIC fallback
+- MitM hostnames
+- `initplayback -> reject_video(200)` fallback
+- tracking fallbacks
+
+### Stable-core policy
+
+The current core has been device-tested with pre-roll removal and background playback working. Therefore:
+
+- Do **not** routinely modify or auto-sync the pinned teaoea core.
+- Do **not** replace the working `initplayback -> reject_video(200)` path just because another upstream implementation is newer.
+- Prefer adding new features outside the playback/ad core.
+- Change the core only when a reproducible YouTube update breaks it and Loon request logs identify the failing path.
+- Archive the last working plugin in `legacy/` before every core migration.
+
+In short: **working core is pinned, not rolling.**
