@@ -7,10 +7,15 @@
 
 ## 当前版本（2026-10-05）
 
-当前主版本已经不再混用两套 response 过滤器，而是改成一条统一的当前 YouTube Onesie/UMP 处理链路。参考实现于 2026-10-04 刚更新了新版 Premium banner / Sponsored 结构识别，并直接处理加密 `initplayback` response。
+当前已实机验证可用的主版本采用一条更保守的 Loon/iOS 路线：
 
-本仓库将对应核心脚本固定在 `scripts/core/`，并额外做 Loon 参数适配、字幕翻译以及 YouTube 专用 QUIC 回退。旧版保存在 `legacy/`，可随时回滚。
+- **片头/中插广告核心**：固定采用 `teaoea/shell` 的 Loon 播放请求净化与 `player/ad_break` 处理逻辑，源提交固定为 `a44ce03f12368d44f4a324eb2c0c18c00d60e937`。
+- **initplayback 回退**：不再自行解密/改写 Onesie/UMP，而是对 YouTube iOS App 的 POST `googlevideo.com/initplayback` 使用 Loon 原生 `reject_video(200)`，迫使客户端回退到已净化的 Player 链路。
+- **后台播放 / 字幕 / UI**：继续使用 Maasea 的 Loon-compatible response 脚本。
+- **信息流 Sponsored**：使用固定 vendored 的 teaoea response bundle。
+- **QUIC**：仅针对 YouTube / googlevideo / youtubei 做回退，不全局关闭 UDP。
 
+此前尝试过的 gholts/UMP 混合方案保留在 `legacy/`，但不再是当前主版本。
 
 ## 当前广告处理架构
 
@@ -89,7 +94,42 @@ Maasea 上游 response 脚本会同时注入 PiP 和后台播放 capability。�
 核心解析逻辑来自 [Maasea/sgmodule](https://github.com/Maasea/sgmodule)。本仓库是非官方 Loon 兼容 fork，与 YouTube、Google、Loon 或 Maasea 无隶属关系。
 
 
-## 当前兼容链路说明
+## 核心来源与稳定策略
 
-当前版本继续保留 Maasea 的 Loon-aware 播放/设置逻辑，同时参考并直接调用公开的 `gholts/surge` YouTube 兼容脚本来处理新版 Sponsored 卡片、加密 Onesie/UMP 响应以及 `player/ad_break`。其模块说明该实现基于 Maasea 的 Apache-2.0 代码。
+当前“真正决定片头广告能否被去掉”的核心逻辑不是本项目原创，来源如下：
 
+1. **teaoea/shell（MIT）**
+   - 上游仓库：https://github.com/teaoea/shell
+   - 固定提交：`a44ce03f12368d44f4a324eb2c0c18c00d60e937`
+   - 本仓库固定副本：
+     - `vendor/teaoea/request.min.js`
+     - `vendor/teaoea/response.min.js`
+   - 负责：`player/get_watch` 请求净化、`player/ad_break`、`browse/next/search` Sponsored 过滤。
+   - MIT License 与归属信息保存在 `vendor/teaoea/NOTICE.md`。
+
+2. **Maasea/sgmodule**
+   - 上游仓库：https://github.com/Maasea/sgmodule
+   - 本仓库固定副本：
+     - `scripts/stable/youtube.response.js`
+     - `scripts/stable/youtube.request.js`
+   - 负责当前主版本里的后台播放 capability、字幕翻译和部分 UI 增强。
+
+3. **本项目的 Loon glue**
+   - `YouTube_Enhance.lpx`
+   - 负责把上述两套能力按已验证顺序组合，并加入 `reject_video(200)`、QUIC fallback、MitM hostnames 和 tracking fallback。
+
+### 稳定核心策略
+
+当前版本已经在实机上确认“片头广告 + 后台播放”工作正常，因此从现在开始：
+
+- **默认不改** `vendor/teaoea/request.min.js`、`vendor/teaoea/response.min.js` 和 `initplayback -> reject_video(200)` 这条主链。
+- 不因为上游出现新 commit 就自动同步核心代码。
+- 新功能优先加在外围：UI、字幕、README、日志、可选规则。
+- 只有在 YouTube 更新导致主功能明确失效，并且有 Loon Requests 证据时，才升级核心。
+- 升级核心前先把当前工作版本存进 `legacy/`，确保可以立即回滚。
+
+换句话说：**working core is pinned, not rolling.**
+
+## 上游与许可
+
+本项目是非官方 Loon 兼容整合项目，与 YouTube、Google、Loon、Maasea 或 teaoea 无隶属关系。使用的第三方代码按各自许可证保留来源与版权信息。
