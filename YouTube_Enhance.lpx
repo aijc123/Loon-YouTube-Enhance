@@ -1,7 +1,7 @@
 #!name=YouTube Enhance for Loon
-#!desc=当前 YouTube/iOS 兼容版：去视频广告、Sponsored 卡片、后台播放、PiP、字幕翻译与界面精简。核心基于 2026-10-04 最新 YouTube Onesie/UMP 实现，并针对 Loon 参数和 QUIC 回退适配。
+#!desc=Loon/iOS 稳定版：YouTube / YouTube Music 去广告、后台播放、字幕翻译、界面精简，并加入针对当前 5 秒片头广告的 initplayback oad 拦截与 YouTube 专用 QUIC 回退。
 #!openUrl=https://apps.apple.com/app/id544007664
-#!author=Maasea, gholts, aijc123
+#!author=Maasea, Moli-X/Kelee adaptation, gholts, aijc123
 #!tag=YouTube,去广告,后台播放
 #!system=iOS, iPadOS, macOS
 #!system_version=15
@@ -15,40 +15,37 @@ blockUpload=switch, false, true, tag=隐藏上传按钮, desc=隐藏 YouTube 底
 blockShorts=switch, true, false, tag=隐藏 Shorts 按钮, desc=隐藏 YouTube 底栏 Shorts 按钮
 blockImmersive=switch, false, true, tag=隐藏选段按钮, desc=隐藏 YouTube Music 底栏选段按钮
 captionLang=select, "off", "zh-Hans", "zh-Hant", "ja", "ko", "en", "fr", "de", "ru", "fil", "vi", tag=字幕翻译语言, desc=off 为关闭；其余为目标字幕语言
-blockGames=switch, true, false, tag=隐藏 Playables, desc=隐藏首页游戏/Playables 内容
-blockVerticalLive=switch, false, true, tag=隐藏竖屏直播, desc=隐藏首页竖屏直播卡片
-jumpAhead=switch, true, false, tag=启用 Jump Ahead, desc=解除 Jump Ahead 按钮限制
-blockStore=switch, true, false, tag=隐藏商品推广, desc=隐藏创作者商店、商品卡片与覆盖层
-autoHd=switch, true, false, tag=优先高画质, desc=允许脚本缓存高画质选择信息
 debug=switch, false, true, tag=调试模式, desc=排障时开启
 
 [Rule]
-# 仅阻断 YouTube 相关域名的 UDP/QUIC，让 HTTP/3 自动回落 TCP/HTTPS。
-AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,QUIC)),REJECT
-AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,QUIC)),REJECT
-AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,QUIC)),REJECT
+# 只对 YouTube 关键域名禁用 UDP/QUIC，强制回落 TCP/HTTPS。
+AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,UDP)),REJECT
+AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,UDP)),REJECT
+AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,UDP)),REJECT
 
 [Rewrite]
-request if ${url} ~= /^https:\/\/www\.youtube\.com\/(pagead|pcs)\// then reject(200)
-request if ${url} ~= /^https:\/\/www\.youtube\.com\/ptracking/ then reject(200)
-request if ${url} ~= /^https:\/\/(?:s|www)\.youtube\.com\/api\/stats\/ads/ then reject(200)
-request if ${url} ~= /^https:\/\/(?:s|www)\.youtube\.com\/api\/stats\/qoe\?adcontext/ then reject(200)
+# 关键：当前 iOS YouTube 的短片头广告常走带 oad 参数的 initplayback。
+# 这是多个长期使用的 Loon/Surge YouTube 规则采用的直接拦截方式。
+request if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback.+(?:[?&])oad(?:=|&|$)/i then reject(200)
+
+# 广告 tracking / telemetry 兜底。它们不是主过滤手段，但避免广告链路继续回报。
+request if ${url} ~= /^https:\/\/www\.youtube\.com\/(pagead|pcs)\//i then reject(200)
+request if ${url} ~= /^https:\/\/www\.youtube\.com\/ptracking/i then reject(200)
+request if ${url} ~= /^https:\/\/(?:www|s)\.youtube\.com\/api\/stats\/ads/i then reject(200)
+request if ${url} ~= /^https:\/\/(?:www|s)\.youtube\.com\/api\/stats\/qoe\?.*adcontext/i then reject(200)
 
 [Script]
-# 当前主 API：广告过滤 + Sponsored/promoted 结构 + background/PiP + 设置 + 字幕翻译
-response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(navigation\/resolve_url|browse|next|player|search|reel\/reel_watch_sequence|guide|account\/get_setting|get_watch)(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/response.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${blockGames}, ${blockVerticalLive}, ${jumpAhead}, ${blockStore}, ${autoHd}, ${debug}}) with tag="YouTube核心增强", requires_body=true, binary_body_mode=true
+# 新版 Sponsored / promoted 卡片过滤：只处理 feed/search/next，不碰播放器能力链路。
+response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(navigation\/resolve_url|browse|next|search|reel\/reel_watch_sequence)(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/response.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="YouTube信息流去广告", requires_body=true, binary_body_mode=true
 
-# Onesie/UMP 密钥：必须先解析 config/log_event，才能处理加密 initplayback response。
-response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(config|log_event)(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/key.js") with tag="YouTube密钥配置", requires_body=true, binary_body_mode=true
+# Loon 原生稳定播放器链路：基于当前 Kelee/Maasea Loon 脚本。
+# 保留后台播放能力；移除强制 PiP capability 注入，让 iOS/YouTube 自己处理 PiP。
+response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/(youtubei\/v1\/(player|guide|account\/get_setting|get_watch|log_event|config))(\?(.*))?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/stable/youtube.response.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="YouTube播放增强", requires_body=true, binary_body_mode=true
 
-# 真正处理当前加密播放响应：去片头/中插广告，同时补 background/PiP/caption capability。
-response if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/ump.js", {${captionLang}, ${blockGames}, ${blockVerticalLive}, ${jumpAhead}, ${blockStore}, ${autoHd}, ${debug}}) with tag="YouTube UMP响应", requires_body=true, binary_body_mode=true
+# Kelee/Maasea Loon-native initplayback 请求处理。广告专用 oad 请求会先被 Rewrite 拦截。
+request if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback.+&ack.*/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/stable/youtube.request.js", {${captionLang}}) with tag="YouTube请求初始化", requires_body=true, binary_body_mode=true
 
-request if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/request.js", {${autoHd}, ${debug}}) with tag="YouTube UMP请求", requires_body=true, binary_body_mode=true
-
-request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/log_event(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/request.js", {${debug}}) with tag="YouTube日志事件"
-
-request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/player\/ad_break(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/core/request.js", {${debug}}) with tag="YouTube广告段"
+request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/log_event/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/stable/youtube.request.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="YouTube日志事件", requires_body=true, binary_body_mode=true
 
 [MitM]
 hostname = %APPEND% *.googlevideo.com, youtubei.googleapis.com, www.youtube.com, s.youtube.com
