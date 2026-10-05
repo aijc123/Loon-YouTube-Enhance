@@ -1,2 +1,22 @@
 #!name = YouTube Enhance for Loon
-#!desc = Loon plugin based on Maasea upstream.
+#!desc = YouTube / YouTube Music enhancement for Loon based on Maasea upstream, with background playback, native PiP compatibility, subtitle translation, and YouTube-only QUIC fallback.
+#!author = Maasea (upstream) / aijc123
+#!homepage = https://github.com/aijc123/Loon-YouTube-Enhance
+#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/YouTube.png
+#!system = iOS,iPadOS,macOS
+#!system_version = 15
+#!loon_version = 3.5.1(998)
+#!tag = YouTube,YouTube Music,Background,PiP
+#!type = normal
+
+[Argument]
+blockUpload = switch,false,tag=隐藏上传按钮,desc=隐藏 YouTube 底栏上传按钮
+blockShorts = switch,true,tag=隐藏 Shorts 按钮,desc=隐藏 YouTube 底栏 Shorts 按钮
+blockImmersive = switch,false,tag=隐藏选段按钮,desc=隐藏 YouTube Music 底栏选段按钮
+captionLang = select,"off","zh-Hans","zh-Hant","en","ja","ko","es","fr","de","ru","fil","vi",tag=字幕翻译语言,desc=off=关闭；zh-Hans=简体中文；zh-Hant=繁体中文
+debug = switch,false,tag=启用调试模式,desc=仅排障时开启
+
+[Rule]
+AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,UDP)),REJECT
+AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,UDP)),REJECT
+AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,UDP)),REJECT
