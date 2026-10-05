@@ -1,5 +1,7 @@
 # Loon YouTube Enhance
 
+**English** | [简体中文](./README.zh-CN.md)
+
 A Loon-focused YouTube / YouTube Music enhancement plugin based on the current Maasea upstream scripts.
 
 ## Goals
@@ -15,7 +17,7 @@ A Loon-focused YouTube / YouTube Music enhancement plugin based on the current M
 
 Recent YouTube/iOS versions changed playback and PiP behavior. Maasea's current Enhance module uses the newer `initplayback` + `log_event` flow and remains the upstream base here.
 
-This fork adds two Loon-specific changes:
+This fork adds three Loon-specific changes:
 
 1. **YouTube UDP/QUIC fallback**
    - `youtube.com`
@@ -28,6 +30,10 @@ This fork adds two Loon-specific changes:
    - Maasea's response script enables both PiP and background playback capabilities.
    - This fork removes only the forced PiP capability injection while keeping background playback enabled.
    - The intent is to let current iOS/YouTube use native PiP, avoiding a known class of PiP black-screen / stalled playback issues.
+
+3. **Current initplayback hotfix**
+   - Some current YouTube `initplayback` URLs no longer include the older `&ack` marker used by earlier match rules.
+   - This fork matches all `googlevideo.com/initplayback` requests so the current request handler is not bypassed.
 
 ## Loon subscription
 
