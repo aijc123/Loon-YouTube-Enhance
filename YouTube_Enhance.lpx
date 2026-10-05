@@ -1,7 +1,7 @@
 #!name=YouTube Enhance for Loon
-#!desc=基于 Maasea 当前 YouTube Enhance：去广告、后台播放、原生 PiP 兼容、字幕翻译与界面精简；加入 YouTube 专用 QUIC/UDP 回退，并兼容当前 initplayback 请求格式。
+#!desc=基于 Maasea + 当前 YouTube Onesie/UMP 兼容链路：去广告、后台播放、PiP、字幕翻译与界面精简；针对 Sponsored 卡片和加密 initplayback 播放链路增强过滤。
 #!openUrl=https://apps.apple.com/app/id544007664
-#!author=Maasea[https://github.com/Maasea], VirgilClyne[https://github.com/VirgilClyne], Choler[https://github.com/Choler], DivineEngine[https://github.com/DivineEngine], app2smile[https://github.com/app2smile]
+#!author=Maasea[https://github.com/Maasea], gholts[https://github.com/gholts/surge], aijc123
 #!tag=去广告
 #!system=iOS, iPadOS, macOS
 #!system_version=15
@@ -22,12 +22,30 @@ AND,((DOMAIN-SUFFIX,youtube.com),(PROTOCOL,UDP)),REJECT
 AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,UDP)),REJECT
 AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,UDP)),REJECT
 
+[Rewrite]
+request if ${url} ~= /^https:\/\/www\.youtube\.com\/(pagead|pcs)\// then reject(200)
+request if ${url} ~= /^https:\/\/www\.youtube\.com\/ptracking/ then reject(200)
+request if ${url} ~= /^https:\/\/s\.youtube\.com\/api\/stats\/ads/ then reject(200)
+request if ${url} ~= /^https:\/\/s\.youtube\.com\/api\/stats\/qoe\?adcontext/ then reject(200)
+
 [Script]
-response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/(youtubei\/v1\/(browse|next|player|search|reel\/reel_watch_sequence|guide|account\/get_setting|get_watch|log_event|config))(\?(.*))?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/youtube.response.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="YouTube去广告", requires_body=true, binary_body_mode=true
+# Current feed/watch-page ad filtering. This path recognizes newer sponsoredVideo / sponsoredDisplay / promotedContents structures.
+response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(navigation\/resolve_url|browse|next|search|reel\/reel_watch_sequence)(\?.*)?$/i then script("https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/response.js") with tag="YouTube广告过滤", requires_body=true, binary_body_mode=true
 
-request if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback.*$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/youtube.request.js", {${captionLang}}) with tag="请求初始化", requires_body=true, binary_body_mode=true
+# Keep Maasea's Loon-aware player/settings handler for background capability, UI options and caption translation.
+response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(player|guide|account\/get_setting|get_watch)(\?.*)?$/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/youtube.response.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="YouTube播放增强", requires_body=true, binary_body_mode=true
 
-request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/log_event/i then script("https://raw.githubusercontent.com/aijc123/Loon-YouTube-Enhance/main/scripts/youtube.request.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="请求日志事件", requires_body=true, binary_body_mode=true
+# Current encrypted Onesie/UMP key flow.
+response if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(config|log_event)(\?.*)?$/i then script("https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/key.js") with tag="YouTube密钥配置", requires_body=true, binary_body_mode=true
+
+# Process the actual encrypted initplayback response, not only the request.
+response if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback(\?.*)?$/i then script("https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/ump.js") with tag="YouTube UMP响应", requires_body=true, binary_body_mode=true
+
+request if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback(\?.*)?$/i then script("https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/request.js") with tag="YouTube UMP请求", requires_body=true, binary_body_mode=true
+
+request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/log_event(\?.*)?$/i then script("https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/request.js") with tag="YouTube日志事件"
+
+request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/player\/ad_break(\?.*)?$/i then script("https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/request.js") with tag="YouTube广告段"
 
 [MitM]
-hostname = %APPEND% *.googlevideo.com, youtubei.googleapis.com
+hostname = %APPEND% *.googlevideo.com, youtubei.googleapis.com, www.youtube.com, s.youtube.com
