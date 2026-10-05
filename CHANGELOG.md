@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-05 — initplayback hotfix
+
+- Broadened the Loon initplayback request hook so current YouTube initplayback URLs are intercepted even when the older `&ack` marker is absent.
+- Switched the plugin back to Loon's current `response if ... then script(...)` / `request if ... then script(...)` syntax.
+- Kept YouTube-only UDP/QUIC fallback and the native-PiP compatibility response patch.
+
 ## 2026-10-05
 
 Initial public release.
