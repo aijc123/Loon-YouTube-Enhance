@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-05 — Player-request + initplayback fallback rewrite
+
+- Re-reviewed the Loon-specific YouTube path against current public implementations.
+- Adopted the current Loon player-request/ad_break cleaning path from `teaoea/shell` (pinned source commit `a44ce03f12368d44f4a324eb2c0c18c00d60e937`, MIT licensed) and vendored its request/response bundles under `vendor/teaoea/`.
+- Player/get_watch requests now remove ad signals, ad params and force-ad parameters and set the inline-no-ad flag before the server chooses playback.
+- `player/ad_break` is explicitly answered with a legal empty protobuf to prevent new pre-roll/mid-roll ad configuration.
+- Replaced fragile initplayback URL heuristics/worker interception with Loon's native `reject_video(200)` for YouTube App POST `googlevideo.com/initplayback`, forcing fallback to the cleaned Player path.
+- Added both QUIC and UDP/443 fallback rules for googlevideo/youtubei/youtube domains and clears googlevideo `Alt-Svc`.
+- Kept the previously working Maasea/Kelee response path for background playback, captions and UI options.
+- Archived the prior plugin under `legacy/`.
+
 ## 2026-10-05 — Loon-native preroll hotfix
 
 - Restored the Loon-native Kelee/Maasea playback path instead of relying on Surge WebView-oriented UMP scripts for the player.
